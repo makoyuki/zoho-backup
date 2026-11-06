@@ -1,0 +1,5 @@
+CLAUDE.md
+credentials
+conf/zoho-backup.conf
+*.part
+__pycache__/

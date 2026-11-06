@@ -1,0 +1,11 @@
+# /etc/systemd/system/zoho-backup.timer に置く。毎日 02:05 に実行(新しいバックアップがあるときだけ取得する)。
+[Unit]
+Description=Daily Zoho backup
+
+[Timer]
+OnCalendar=*-*-* 02:05:00
+RandomizedDelaySec=10min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

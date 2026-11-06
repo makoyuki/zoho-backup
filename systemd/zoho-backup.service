@@ -1,0 +1,29 @@
+# /etc/systemd/system/zoho-backup.service に置く。User・ReadWritePaths は環境に合わせて変える。
+[Unit]
+Description=Zoho backup (CRM / Projects / Books / Desk)
+Wants=network-online.target
+After=network-online.target remote-fs.target
+
+[Service]
+Type=oneshot
+User=zbackup
+Group=zbackup
+UMask=0027
+# /var/lib/zoho-backup(状態・取得の記録)を zbackup の 0750 で用意する
+StateDirectory=zoho-backup
+StateDirectoryMode=0750
+ExecStart=/usr/local/lib/zoho-backup/zoho-backup.py run
+# 失敗の通知はスクリプト自身がメールで送る。出力は journal(journalctl -u zoho-backup)
+TimeoutStartSec=3h
+Nice=10
+IOSchedulingClass=idle
+# 保存先と状態ディレクトリ以外へは書かせない
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/srv/backup/zoho/backup
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes

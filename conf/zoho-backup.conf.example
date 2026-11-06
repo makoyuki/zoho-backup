@@ -1,0 +1,91 @@
+# /etc/zoho-backup/zoho-backup.conf として置く(root:zbackup 0640)。秘密情報は書かない(credentials へ)。
+[general]
+# 保存先(名前は YYYYMMDD_<CRM|PRJ|BOOKS|DESK>[_...].zip)
+backup_dir = /srv/backup/zoho/backup
+state_dir = /var/lib/zoho-backup
+credentials = /etc/zoho-backup/credentials
+accounts_url = https://accounts.zoho.jp
+api_domain = https://www.zohoapis.jp
+# 社外への通信にプロキシを使うときに書く(例: http://proxy.example.com:8080。空なら直接)
+proxy =
+# Authorization を送ってよいホスト(これ以外へのリダイレクト先には送らない)
+auth_host_suffixes = zoho.jp, zohoapis.jp
+# 種別ごとに残す世代数(取得した日付の数)。サービスごとに上書きできる。
+# 取得の周期 × 世代数 = 残る期間。既定は約 1 年分(週 1 回 × 52)
+keep_generations = 52
+# 保存先の空きがこれより少なければ取得しない
+min_free_gb = 5
+# 画面から手で取った全体のバックアップ(起点)の置き場所。YYYYMMDD_Books.zip・YYYYMMDD_Desk.zip を置くと、
+# Books の明細・Desk はその日の 0:00 以降に変わった分だけ取る(最新の日付のものを使う。世代の整理の対象外)
+baseline_dir = /srv/backup/zoho/baseline
+# 最新の起点がこの日数を超えたら、取り直しのお知らせを mail_to へ送る(取り直すまで baseline_remind_interval_days 日ごと)
+baseline_remind_days = 90
+baseline_remind_interval_days = 7
+timeout = 120
+
+[mail]
+smtp_host = localhost
+smtp_port = 25
+mail_from = zoho-backup@example.com
+mail_to = admin@example.com
+subject_prefix = [zoho-backup]
+# 成功時も送るか(失敗時は常に送る)
+notify_success = no
+
+[crm]
+# Zoho 側の予定(CRM の設定 → データ管理 → データのバックアップ)で作られたものを取る。
+# 毎日確認し、新しいものだけを取得する。ダウンロードの期限は作成から 7 日
+enabled = no
+api_version = v5
+attachments = yes
+# 最後の取得からこの日数を超えても新しいバックアップが無ければ、失敗として通知する
+# (Zoho 側の予定の周期 + 2 日が目安。下の値は 2 週間ごとの場合。予定を月 1 回などに変えたら合わせて変える)
+alert_days = 16
+# 2 週間ごと × 26 = 約 1 年
+keep_generations = 26
+
+[projects]
+# portal_export(24 時間に 1 回まで作成できる。ファイルは約 15 日で削除)
+enabled = no
+portal_id =
+api_url = https://projectsapi.zoho.jp
+interval_days = 7
+# 最後の取得からこの日数を超えたら通知(既定 interval_days + 2)
+alert_days = 9
+wait_minutes = 60
+
+[books]
+# 全体のバックアップの API は無いため、各モジュールの一覧の API を JSON で保存する(一覧は毎回全件)。
+# 明細は起点(baseline_dir)の日以降に更新されたものだけ取る。復元は 起点 + 最新の BOOKS.zip
+# 有効にする前に、ZohoBooks.*.READ を含めて refresh token を取り直し、check で organization_id を確認すること
+enabled = no
+organization_id =
+interval_days = 7
+# 最後の取得からこの日数を超えたら通知(既定 interval_days + 2)
+alert_days = 9
+# modules = contacts,items,invoices,...(省略時はスクリプトの BOOKS_MODULES)
+# 明細(行)まで取るモジュール(1 件ごとに API を 1 回使う。起点が無いと全件を取る)
+# 画面のバックアップのページ(起点の取り直しのお知らせに載せる)
+backup_page_url = https://books.zoho.jp/app/<organization_id>#/settings/databackup
+detail_modules = invoices,bills,creditnotes,estimates,salesorders,purchaseorders,journals,vendorcredits
+max_requests = 1500
+requests_per_minute = 80
+
+[desk]
+# 全体のバックアップの API は無いため、Bulk Export でモジュールごとに出力する。スレッド(メールの本文)は threads で別に取る。
+# 起点(baseline_dir)の日以降に変わった分だけ出す。開始 1 回 500 クレジット × モジュール数 + 1 件 1 クレジット。
+# 有効にする前に、Desk.exports・Desk.basic.READ を含めて refresh token を取り直し、check で org_id を確認すること
+enabled = no
+org_id =
+api_url = https://desk.zoho.jp
+# 画面のバックアップのページ(起点の取り直しのお知らせに載せる)
+backup_page_url = https://desk.zoho.jp/agent/<ポータル名>/all/setup#setup/data-administration/databackup
+interval_days = 7
+# 最後の取得からこの日数を超えたら通知(既定 interval_days + 2)
+alert_days = 9
+wait_minutes = 60
+# modules = tickets,contacts,...(省略時はスクリプトの DESK_MODULES)
+# 起点以降に更新されたチケットのスレッド(メールの本文・原文)とコメントも取る(Desk.tickets.READ・Desk.search.READ が必要)
+threads = yes
+# スレッドの取得で使う API の回数の上限(超えたら失敗として通知)
+max_requests = 20000
